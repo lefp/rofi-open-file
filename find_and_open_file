@@ -78,7 +78,7 @@ def prompt_select_result(results): # takes a list of recoll.Docs, returns the in
     if ran.returncode != 0: raise RuntimeError('Rofi (result selection dialog) returned non-zero')
 
     # process the selection
-    selected_ind = int(ran.stdout[0]) # we prepended indices to the entries, now get the selected ind
+    selected_ind = int(ran.stdout.split(' ')[0]) # get the index that was prepended to the entry
     return selected_ind
 
 if __name__ == "__main__":
