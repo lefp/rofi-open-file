@@ -1,5 +1,6 @@
 Opens a search dialog to find and open a file.
 Supports searching text within files.
+Supports limiting search to just PDFs.
 
 Dependencies: Rofi, Recoll
 The assumption is that this is used as an i3 script, but that's not required.
