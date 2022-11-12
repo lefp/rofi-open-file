@@ -29,8 +29,8 @@ def parse_args():
     return parser.parse_args()
 
 def prompt_search_query(fulltext: bool, pdf_only: bool):
-    if not pdf_only: prompt = 'file search' if not fulltext else 'fulltext search'
-    else: prompt = 'PDF search' if not fulltext else 'PDF text search'
+    prompt = 'file search' if not fulltext else 'text search'
+    if pdf_only: prompt = 'PDF ' + prompt
 
     ran = sp.run(['/bin/rofi', '-dmenu', '-p', prompt], stdout=PIPE, text=True)
     if ran.returncode != 0: raise RuntimeError('Rofi (search query dialog) returned non-zero')
