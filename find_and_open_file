@@ -37,31 +37,29 @@ def prompt_search_query(fulltext: bool, pdf_only: bool):
 
     return ran.stdout
 
-def search(query: str, fulltext: bool, pdf_only: bool): # -> list(recoll.Doc)
+def search(user_query: str, fulltext: bool, pdf_only: bool): # -> list(recoll.Doc)
     db = recoll.connect()
     dbquery = db.query()
     # if using sortby(), it must be before executing the search
     dbquery.sortby('relevancyrating', ascending=False)
 
-    # @todo this part is sketchy AF, find a more organized way to do this
-    # `,` indicates AND
-    fname_query = [] # stuff specifically in the filename
-    rest_of_query = '' # everything else (tho search will also match this against filenames)
-    # the fname part
-    if not fulltext: fname_query += [query.replace(' ',',')]
-    if pdf_only: fname_query += ['.pdf']
-    if fname_query != []: fname_query = 'filename:' + ','.join(fname_query)
-    else: fname_query = ''
-    # the rest of it
-    if fulltext: rest_of_query += query
     # build the query
-    query = fname_query + ' ' + rest_of_query
+    # `,` indicates AND
+    query = []
+    # fulltext or filename only?
+    if fulltext: query.append(user_query)
+    else: query.append('filename:' + user_query.replace(' ',','))
+    #
+    if pdf_only: query.append('ext:pdf')
+    #
+    query = ' '.join(query)
         
-    _n_results = dbquery.execute(query) # this is the actual "search" part
+    # run the query
+    _n_results = dbquery.execute(query)
     results = dbquery.fetchmany(MAX_RESULTS)
     return results
 
-def prompt_select_result(results): # takes a list of recoll.Docs, returns the index of the selected Doc
+def prompt_select_result(results): # list(recoll.Doc) -> index of selected Doc
     # character separating entries in the Rofi input
     SEP = '\n' # unix filenames could theoretically contain a '\n', but that would be stupid
 
