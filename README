@@ -4,5 +4,6 @@ Supports limiting search to just PDFs.
 
 Dependencies: Rofi, Recoll
 The assumption is that this is used as an i3 script, but that's not required.
+Make sure Recoll has indexed your file system, else this won't work.
 
 Inspired by https://github.com/andersju/zzzfoo
