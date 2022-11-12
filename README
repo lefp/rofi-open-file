@@ -1,0 +1,7 @@
+Opens a search dialog to find and open a file.
+Supports searching text within files.
+
+Dependencies: Rofi, Recoll
+The assumption is that this is used as an i3 script, but that's not required.
+
+Inspired by https://github.com/andersju/zzzfoo
