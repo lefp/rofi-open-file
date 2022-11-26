@@ -1,6 +1,5 @@
 #!/bin/python3
 
-# Peter Lef
 # complete rewrite of zzzfoo, to be simpler and work on my system
 
 from recoll import recoll
