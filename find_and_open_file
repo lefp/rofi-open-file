@@ -6,6 +6,7 @@ from recoll import recoll
 import subprocess as sp
 from subprocess import PIPE
 import argparse
+from dataclasses import dataclass
 
 # maximum number of results to return
 # making an assumption about how many results the user is willing to dig through
@@ -36,7 +37,13 @@ def prompt_search_query(fulltext: bool, pdf_only: bool):
 
     return ran.stdout
 
-def search(user_query: str, fulltext: bool, pdf_only: bool) -> list[recoll.Doc]:
+@dataclass
+class SearchResult:
+    file_url: str
+    filename: str
+    snippets: list[str]
+
+def search(user_query: str, fulltext: bool, pdf_only: bool) -> list[SearchResult]:
     db = recoll.connect()
     dbquery = db.query()
     # if using sortby(), it must be before executing the search
@@ -55,27 +62,63 @@ def search(user_query: str, fulltext: bool, pdf_only: bool) -> list[recoll.Doc]:
         
     # run the query
     _n_results = dbquery.execute(query_onestring)
-    results = dbquery.fetchmany(MAX_RESULTS)
+    query_results = dbquery.fetchmany(MAX_RESULTS)
+
+    results: list[SearchResult] = [
+        SearchResult(
+             file_url=result.url,
+             filename=result.filename,
+             snippets=dbquery.getsnippets(result, nohl=True) if fulltext else ''
+         )
+        for result in query_results
+    ]
     return results
 
-# returns index of selected Doc
-def prompt_select_result(results: list[recoll.Doc]) -> int:
+# returns the file url
+def prompt_select_result(results: list[SearchResult], search_was_fulltext: bool) -> str:
 
     # process the entries
-    fnames = list(map(lambda res : res.filename, results)) # extract filenames
-    for i in range(0, len(fnames)): fnames[i] = f'{i} ' + fnames[i] # prepend indices to the filenames
-    fnames_onestring = '\0'.join(fnames)
+    entries: list[str] = []
+
+    if (search_was_fulltext):
+        idx = 0
+        for result in results:
+            for snippet in result.snippets:
+                entries.append(
+                    f'{idx} ' # prepend index to the filename
+                    + f'<b>{result.filename}</b>'
+                    # `snippet` is a tuple: (page number, matched word, actual snippet)
+                    + f'\n<small>    p{snippet[0]}: {repr(snippet[2])}</small>'
+                )
+                idx += 1
+    else:
+        for i in range(0, len(results)):
+            result = results[i]
+            entries.append(
+                f'{i} ' # prepend index to the filename
+                + result.filename
+            )
+
+    entries_onestring = '\0'.join(entries)
 
     # make user select a file
     ran = sp.run(
-        ['/bin/rofi', '-dmenu', '-p', 'results', '-sep', '\\0', '-i'], # case insensitive
-        text=True, input=fnames_onestring, stdout=PIPE
+        [
+            '/bin/rofi',
+            '-dmenu',
+            '-p', 'results', # prompt text
+            '-sep', '\\0',
+            '-i', # case-insensitive
+            '-markup-rows', # render markup, instead of just displaying it raw
+        ]
+            + (['-eh', '2'] if search_was_fulltext else []),
+        text=True, input=entries_onestring, stdout=PIPE
     )
     if ran.returncode != 0: raise RuntimeError('Rofi (result selection dialog) returned non-zero')
 
     # process the selection
     selected_ind = int(ran.stdout.split(' ')[0]) # get the index that was prepended to the entry
-    return selected_ind
+    return results[selected_ind].file_url
 
 if __name__ == "__main__":
     args = parse_args() # command-line args
@@ -88,8 +131,7 @@ if __name__ == "__main__":
     results = search(query_str, fulltext=args.full_text_search, pdf_only=args.pdf_only)
 
     # have user select file
-    selected_ind = prompt_select_result(results)
-    fileurl = results[selected_ind].url
+    fileurl = prompt_select_result(results, args.full_text_search)
 
     # xdg-open the file and exit
     sp.Popen(['/bin/xdg-open', fileurl])
