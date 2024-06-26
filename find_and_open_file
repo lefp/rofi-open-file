@@ -59,17 +59,15 @@ def search(user_query: str, fulltext: bool, pdf_only: bool): # -> list(recoll.Do
     return results
 
 def prompt_select_result(results): # list(recoll.Doc) -> index of selected Doc
-    # character separating entries in the Rofi input
-    SEP = '\n' # unix filenames could theoretically contain a '\n', but that would be stupid
 
     # process the entries
     fnames = list(map(lambda res : res.filename, results)) # extract filenames
     for i in range(0, len(fnames)): fnames[i] = f'{i} ' + fnames[i] # prepend indices to the filenames
-    fnames = SEP.join(fnames) # convert to SEP-separated string
+    fnames = '\0'.join(fnames)
 
     # make user select a file
     ran = sp.run(
-        ['/bin/rofi', '-dmenu', '-p', 'results', '-sep', SEP, '-i'], # case insensitive
+        ['/bin/rofi', '-dmenu', '-p', 'results', '-sep', '\\0', '-i'], # case insensitive
         text=True, input=fnames, stdout=PIPE
     )
     if ran.returncode != 0: raise RuntimeError('Rofi (result selection dialog) returned non-zero')
