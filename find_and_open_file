@@ -36,7 +36,7 @@ def prompt_search_query(fulltext: bool, pdf_only: bool):
 
     return ran.stdout
 
-def search(user_query: str, fulltext: bool, pdf_only: bool): # -> list(recoll.Doc)
+def search(user_query: str, fulltext: bool, pdf_only: bool) -> list[recoll.Doc]:
     db = recoll.connect()
     dbquery = db.query()
     # if using sortby(), it must be before executing the search
@@ -51,24 +51,25 @@ def search(user_query: str, fulltext: bool, pdf_only: bool): # -> list(recoll.Do
     #
     if pdf_only: query.append('ext:pdf')
     #
-    query = ' '.join(query)
+    query_onestring = ' '.join(query)
         
     # run the query
-    _n_results = dbquery.execute(query)
+    _n_results = dbquery.execute(query_onestring)
     results = dbquery.fetchmany(MAX_RESULTS)
     return results
 
-def prompt_select_result(results): # list(recoll.Doc) -> index of selected Doc
+# returns index of selected Doc
+def prompt_select_result(results: list[recoll.Doc]) -> int:
 
     # process the entries
     fnames = list(map(lambda res : res.filename, results)) # extract filenames
     for i in range(0, len(fnames)): fnames[i] = f'{i} ' + fnames[i] # prepend indices to the filenames
-    fnames = '\0'.join(fnames)
+    fnames_onestring = '\0'.join(fnames)
 
     # make user select a file
     ran = sp.run(
         ['/bin/rofi', '-dmenu', '-p', 'results', '-sep', '\\0', '-i'], # case insensitive
-        text=True, input=fnames, stdout=PIPE
+        text=True, input=fnames_onestring, stdout=PIPE
     )
     if ran.returncode != 0: raise RuntimeError('Rofi (result selection dialog) returned non-zero')
 
