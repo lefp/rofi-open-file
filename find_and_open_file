@@ -68,7 +68,7 @@ def search(user_query: str, fulltext: bool, pdf_only: bool) -> list[SearchResult
         SearchResult(
              file_url=result.url,
              filename=result.filename,
-             snippets=dbquery.getsnippets(result, nohl=True) if fulltext else ''
+             snippets=dbquery.getsnippets(result, nohl=True) if fulltext else []
          )
         for result in query_results
     ]
@@ -117,8 +117,17 @@ def prompt_select_result(results: list[SearchResult], search_was_fulltext: bool)
     if ran.returncode != 0: raise RuntimeError('Rofi (result selection dialog) returned non-zero')
 
     # process the selection
-    selected_ind = int(ran.stdout.split(' ')[0]) # get the index that was prepended to the entry
-    return results[selected_ind].file_url
+    selected_idx = int(ran.stdout.split(' ')[0]) # get the index that was prepended to the entry
+        
+    if (not search_was_fulltext):
+        return results[selected_idx].file_url
+    else:
+        result_idx: int = -1
+        entry_idx: int = -1
+        while (entry_idx < selected_idx):
+            entry_idx += len(results[result_idx].snippets)
+            result_idx += 1
+        return results[result_idx].file_url
 
 if __name__ == "__main__":
     args = parse_args() # command-line args
