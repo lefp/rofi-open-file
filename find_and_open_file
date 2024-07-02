@@ -74,32 +74,49 @@ def search(user_query: str, fulltext: bool, pdf_only: bool) -> list[SearchResult
     ]
     return results
 
+@dataclass
+class SelectableEntry:
+    filename: str
+    file_url: str
+    page: int | None
+    snippet: str | None
+
 # returns the file url
-def prompt_select_result(results: list[SearchResult], search_was_fulltext: bool) -> str:
+def prompt_select_result(results: list[SearchResult], search_was_fulltext: bool) -> SelectableEntry:
 
-    # process the entries
-    entries: list[str] = []
+    entries: list[SelectableEntry] = []
 
-    if (search_was_fulltext):
-        idx = 0
-        for result in results:
+    idx = 0
+    for result in results:
+        if (search_was_fulltext):
             for snippet in result.snippets:
-                entries.append(
-                    f'{idx} ' # prepend index to the filename
-                    + f'<b>{result.filename}</b>'
+                entries.append(SelectableEntry(
+                    filename=result.filename,
+                    file_url=result.file_url,
                     # `snippet` is a tuple: (page number, matched word, actual snippet)
-                    + f'\n<small>    p{snippet[0]}: {repr(snippet[2])}</small>'
-                )
-                idx += 1
-    else:
-        for i in range(0, len(results)):
-            result = results[i]
-            entries.append(
-                f'{i} ' # prepend index to the filename
-                + result.filename
-            )
+                    page=int(snippet[0]),
+                    snippet=snippet[2]
+                ))
+        else:
+            entries.append(SelectableEntry(
+                filename=result.filename,
+                file_url=result.file_url,
+                page=None,
+                snippet=None
+            ))
 
-    entries_onestring = '\0'.join(entries)
+
+    text_entries: list[str] = []
+    idx = 0
+    for entry in entries:
+        text_entries.append(
+            f'{idx} ' # prepend index to the filename
+            + (f'<b>{entry.filename}</b>' if search_was_fulltext else f'{entry.filename}')
+            + (f'\n<small>    p{entry.page}: {repr(entry.snippet)}</small>' if search_was_fulltext else '')
+        )
+        idx += 1
+
+    entries_onestring = '\0'.join(text_entries)
 
     # make user select a file
     ran = sp.run(
@@ -118,16 +135,7 @@ def prompt_select_result(results: list[SearchResult], search_was_fulltext: bool)
 
     # process the selection
     selected_idx = int(ran.stdout.split(' ')[0]) # get the index that was prepended to the entry
-        
-    if (not search_was_fulltext):
-        return results[selected_idx].file_url
-    else:
-        result_idx: int = -1
-        entry_idx: int = -1
-        while (entry_idx < selected_idx):
-            entry_idx += len(results[result_idx].snippets)
-            result_idx += 1
-        return results[result_idx].file_url
+    return entries[selected_idx]
 
 if __name__ == "__main__":
     args = parse_args() # command-line args
@@ -140,8 +148,12 @@ if __name__ == "__main__":
     results = search(query_str, fulltext=args.full_text_search, pdf_only=args.pdf_only)
 
     # have user select file
-    fileurl = prompt_select_result(results, args.full_text_search)
+    selection: SelectableEntry = prompt_select_result(results, args.full_text_search)
 
     # xdg-open the file and exit
-    sp.Popen(['/bin/xdg-open', fileurl])
+    if (selection.page is not None):
+        sp.Popen(['/bin/zathura', selection.file_url, f'--page={selection.page}'])
+    else:
+        sp.Popen(['/bin/xdg-open', selection.file_url])
+
     exit(0) # Popen uses fork() (on Unix systems), so exiting now won't kill the child process
