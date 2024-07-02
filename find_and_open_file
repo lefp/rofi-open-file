@@ -151,9 +151,6 @@ if __name__ == "__main__":
     selection: SelectableEntry = prompt_select_result(results, args.full_text_search)
 
     # xdg-open the file and exit
-    if (selection.page is not None):
-        sp.Popen(['/bin/zathura', selection.file_url, f'--page={selection.page}'])
-    else:
-        sp.Popen(['/bin/xdg-open', selection.file_url])
+    sp.Popen(['/bin/xdg-open', selection.file_url])
 
     exit(0) # Popen uses fork() (on Unix systems), so exiting now won't kill the child process
