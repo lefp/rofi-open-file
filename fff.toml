@@ -1,6 +1,6 @@
 # Put this file in `/home/yourusername/.config/fff.toml`.
 
-# pdf_command_format tells me how to open PDF files.
+# pdf_command_format forces a specific program and arguments for opening PDFs.
 # The `page` argument is optional. For fulltext searches, it enables opening the PDF at the relevant page.
 # Uncomment the example that corresponds to your preferred PDF reader, or write your own:
 #
