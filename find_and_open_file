@@ -7,15 +7,119 @@ import subprocess as sp
 from subprocess import PIPE
 import argparse
 from dataclasses import dataclass
+from tomllib import load as load_toml
+import os
+from sys import stderr
+import typing
+
+#
+# ============================================================================================================
+#
 
 # maximum number of results to return
 # making an assumption about how many results the user is willing to dig through
-MAX_RESULTS = 20
+MAX_RESULTS: int = 20
+
+#
+# config stuff ===============================================================================================
+#
+
+@dataclass(init=False)
+class Config:
+    pdf_command_format: list[str] | None
+
+    def __init__(self):
+        for member_name in type(self).__annotations__.keys():
+            setattr(self, member_name, None)
+
+    @staticmethod
+    def get_member_type(member_name: str):
+        member_type: type | None = Config.__annotations__.get(member_name)
+        assert(member_type is not None)
+        # assumes that all members in this class are written exactly as `some_type | None`, in that order.
+        return typing.get_args(member_type)[0]
+
+
+def get_config_file_location() -> str | None:
+    # TODO check in directories https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html
+
+    home_dir: str = os.path.expanduser('~')
+    assert(home_dir != '~')
+
+    config_path = home_dir + '/.config/fff.toml'
+    if os.path.isfile(config_path): return config_path
+
+    return None
+
+def get_config() -> Config:
+
+    validated_config = Config()
+
+    config_file: str | None = get_config_file_location()
+    if (config_file is None):
+        print('No config file found')
+        return validated_config
+
+    print(f'Using config file `{config_file}`')
+
+    with open(config_file, 'rb') as f:
+        config: dict = load_toml(f)
+
+    config_error: bool = False
+    valid_config_keys = Config.__annotations__.keys()
+    for key, val in config.items():
+
+        if (key not in valid_config_keys):
+            stderr.write(f'error: config file: invalid key `{key}`')
+            config_error = True
+            continue
+
+        if (getattr(validated_config, key) is not None):
+            stderr.write(f'error: config file: key `{key}` is set multiple times')
+            config_error = True
+            continue
+
+        expected_type: type = Config.get_member_type(key)
+        try: casted_val = expected_type(val)
+        except(ValueError):
+            stderr.write(f'error: config file: value of `{key}` must have type `{expected_type}`')
+            config_error = True
+            continue
+
+        setattr(validated_config, key, casted_val)
+
+    if (config_error):
+        stderr.write('error: Aborting due to config errors.')
+        exit(1)
+
+    return validated_config
+
+g_config: Config = get_config()
+
+#
+# ============================================================================================================
+#
+
+def get_pdf_command(fname: str, page: int | None) -> list[str]:
+
+    if page is None: page = 0
+
+    cmd: list[str]
+    if (g_config.pdf_command_format is not None):
+        cmd = g_config.pdf_command_format
+    else:
+        cmd = ['xdg-open', '{file}']
+
+    for i in range(len(cmd)):
+        cmd[i] = cmd[i].replace('{file}', fname)
+        cmd[i] = cmd[i].replace('{page}', str(page))
+
+    return cmd
 
 def parse_args():
     parser = argparse.ArgumentParser(description='find files via a Rofi dialog')
     parser.add_argument('--fulltext',
-        dest='full_text_search', 
+        dest='full_text_search',
         action='store_const', const=True,
         default=False,
         help='also do a full text search within files'
@@ -59,7 +163,7 @@ def search(user_query: str, fulltext: bool, pdf_only: bool) -> list[SearchResult
     if pdf_only: query.append('ext:pdf')
     #
     query_onestring = ' '.join(query)
-        
+
     # run the query
     _n_results = dbquery.execute(query_onestring)
     query_results = dbquery.fetchmany(MAX_RESULTS)
@@ -137,7 +241,7 @@ def prompt_select_result(results: list[SearchResult], search_was_fulltext: bool)
     selected_idx = int(ran.stdout.split(' ')[0]) # get the index that was prepended to the entry
     return entries[selected_idx]
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     args = parse_args() # command-line args
 
     # get query from user
@@ -150,7 +254,16 @@ if __name__ == "__main__":
     # have user select file
     selection: SelectableEntry = prompt_select_result(results, args.full_text_search)
 
-    # xdg-open the file and exit
-    sp.Popen(['/bin/xdg-open', selection.file_url])
+    # open the file and exit
+    cmd: list[str]
+    if (os.path.splitext(selection.file_url)[1] == '.pdf'):
+        cmd = get_pdf_command(selection.file_url, selection.page)
+    else:
+        cmd = ['/bin/xdg-open', selection.file_url]
+
+    print('Running command: ', end='')
+    print(cmd)
+
+    sp.Popen(cmd)
 
     exit(0) # Popen uses fork() (on Unix systems), so exiting now won't kill the child process

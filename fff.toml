@@ -1,0 +1,8 @@
+# Put this file in `/home/yourusername/.config/fff.toml`.
+
+# pdf_command_format tells me how to open PDF files.
+# The `page` argument is optional. For fulltext searches, it enables opening the PDF at the relevant page.
+# Uncomment the example that corresponds to your preferred PDF reader, or write your own:
+#
+# pdf_command_format = ['evince', '--page-index={page}', '{file}']
+# pdf_command_format = ['zathura', '--page={page}', '{file}']
