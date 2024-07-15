@@ -6,3 +6,9 @@
 #
 # pdf_command_format = ['evince', '--page-index={page}', '{file}']
 # pdf_command_format = ['zathura', '--page={page}', '{file}']
+
+# default_command_format specifies which generic file handler to use
+# Uncomment the example that corresponds to your preferred handler, or write your own:
+#
+# default_command_format = ['xdg-open', '{file}']
+# default_command_format = ['handlr', 'open', '{file}']

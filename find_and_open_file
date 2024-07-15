@@ -20,6 +20,8 @@ import typing
 # making an assumption about how many results the user is willing to dig through
 MAX_RESULTS: int = 20
 
+FALLBACK_DEFAULT_COMMAND_FORMAT: list[str] = ['xdg-open', '{file}']
+
 #
 # config stuff ===============================================================================================
 #
@@ -27,6 +29,7 @@ MAX_RESULTS: int = 20
 @dataclass(init=False)
 class Config:
     pdf_command_format: list[str] | None
+    default_command_format: list[str] | None
 
     def __init__(self):
         for member_name in type(self).__annotations__.keys():
@@ -100,19 +103,28 @@ g_config: Config = get_config()
 # ============================================================================================================
 #
 
-def get_pdf_command(fname: str, page: int | None) -> list[str]:
+def get_pdf_command(fname: str, page: int | None) -> list[str] | None:
 
     if page is None: page = 0
 
-    cmd: list[str]
-    if (g_config.pdf_command_format is not None):
-        cmd = g_config.pdf_command_format
-    else:
-        cmd = ['xdg-open', '{file}']
+    if (g_config.pdf_command_format is None): return None
 
+    cmd: list[str] = g_config.pdf_command_format
     for i in range(len(cmd)):
         cmd[i] = cmd[i].replace('{file}', fname)
         cmd[i] = cmd[i].replace('{page}', str(page))
+    return cmd
+
+def get_generic_file_command(fname: str) -> list[str]:
+
+    cmd: list[str]
+    if (g_config.default_command_format is not None):
+        cmd = g_config.default_command_format
+    else:
+        cmd = FALLBACK_DEFAULT_COMMAND_FORMAT
+
+    for i in range(len(cmd)):
+        cmd[i] = cmd[i].replace('{file}', fname)
 
     return cmd
 
@@ -257,9 +269,11 @@ if __name__ == '__main__':
     # open the file and exit
     cmd: list[str]
     if (os.path.splitext(selection.file_url)[1] == '.pdf'):
-        cmd = get_pdf_command(selection.file_url, selection.page)
+        pdf_cmd: list[str] | None = get_pdf_command(selection.file_url, selection.page)
+        if (pdf_cmd is not None): cmd = pdf_cmd
+        else: cmd = get_generic_file_command(selection.file_url)
     else:
-        cmd = ['/bin/xdg-open', selection.file_url]
+        cmd = get_generic_file_command(selection.file_url)
 
     print('Running command: ', end='')
     print(cmd)
