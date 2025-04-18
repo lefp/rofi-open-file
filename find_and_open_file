@@ -227,10 +227,13 @@ def prompt_select_result(results: list[SearchResult], search_was_fulltext: bool)
     for entry in entries:
         text_entries.append(
             f'{idx} ' # prepend index to the filename
-            + (f'<b>{entry.filename}</b>' if search_was_fulltext else f'{entry.filename}')
+            + f'<b>{entry.filename}</b>'
             + (f'\n<small>    p{entry.page}: {repr(entry.snippet)}</small>' if search_was_fulltext else '')
         )
         idx += 1
+
+    for i in range(len(entries)):
+        text_entries[i] = text_entries[i] + f'\n<small>    {entries[i].file_url}</small>'
 
     entries_onestring = '\0'.join(text_entries)
 
@@ -243,8 +246,9 @@ def prompt_select_result(results: list[SearchResult], search_was_fulltext: bool)
             '-sep', '\\0',
             '-i', # case-insensitive
             '-markup-rows', # render markup, instead of just displaying it raw
-        ]
-            + (['-eh', '2'] if search_was_fulltext else []),
+            '-eh', ('3' if search_was_fulltext else '2'),
+            '-theme-str', 'window { height: 95%; }', # don't exceed screen height
+        ],
         text=True, input=entries_onestring, stdout=PIPE
     )
     if ran.returncode != 0: raise RuntimeError('Rofi (result selection dialog) returned non-zero')
